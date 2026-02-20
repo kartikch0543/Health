@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import CalendarView from '../components/CalendarView';
-import { fetchAppointments, updateAppointment, rescheduleAppointment } from '../services/api';
+import { fetchAppointments, updateAppointment, rescheduleAppointment, updateTreatment } from '../services/api';
 
 const SchedulePage = ({ user, setUser }) => {
     const [appointments, setAppointments] = useState([]);
     const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'list'
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+    const [showTreatmentModal, setShowTreatmentModal] = useState(false);
     const [selectedApp, setSelectedApp] = useState(null);
     const [rescheduleData, setRescheduleData] = useState({ date: '', timeSlot: '' });
+    const [treatmentData, setTreatmentData] = useState({ treatment: '', prescription: '', notes: '' });
 
     const loadAppointments = async () => {
         try {
@@ -24,10 +26,20 @@ const SchedulePage = ({ user, setUser }) => {
         loadAppointments();
     }, []);
 
+    const handleStatusUpdate = async (id, status) => {
+        try {
+            await updateAppointment(id, status);
+            alert(`Appointment ${status}`);
+            loadAppointments();
+        } catch (err) {
+            alert('Update failed');
+        }
+    };
+
     const handleCancel = async (id) => {
         if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
         try {
-            await updateAppointment(id, 'rejected'); // Using 'rejected' as 'cancelled'
+            await updateAppointment(id, 'rejected');
             alert("Appointment Cancelled");
             loadAppointments();
         } catch (err) {
@@ -39,6 +51,12 @@ const SchedulePage = ({ user, setUser }) => {
         setSelectedApp(app);
         setRescheduleData({ date: app.date, timeSlot: app.timeSlot });
         setShowRescheduleModal(true);
+    };
+
+    const openTreatmentModal = (app) => {
+        setSelectedApp(app);
+        setTreatmentData({ treatment: app.treatment || '', prescription: app.prescription || '', notes: app.notes || '' });
+        setShowTreatmentModal(true);
     };
 
     const handleRescheduleSubmit = async (e) => {
@@ -53,6 +71,18 @@ const SchedulePage = ({ user, setUser }) => {
         }
     };
 
+    const handleTreatmentSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await updateTreatment(selectedApp._id, treatmentData);
+            alert('Treatment saved and appointment completed!');
+            setShowTreatmentModal(false);
+            loadAppointments();
+        } catch (err) {
+            alert('Failed to save treatment');
+        }
+    };
+
     const filteredForDate = appointments.filter(app => app.date === selectedDate);
 
     return (
@@ -62,7 +92,7 @@ const SchedulePage = ({ user, setUser }) => {
                 <header className="page-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h1>{user.user.role === 'doctor' ? 'My Schedule' : 'My Appointments'}</h1>
-                        <p>Manage and track your medical visits</p>
+                        <p>{user.user.role === 'doctor' ? 'Manage patient visits and consultations' : 'Track and manage your medical visits'}</p>
                     </div>
                     <div className="view-toggle">
                         <button className={`btn-toggle ${viewMode === 'calendar' ? 'active' : ''}`} onClick={() => setViewMode('calendar')}>Calendar View</button>
@@ -99,12 +129,32 @@ const SchedulePage = ({ user, setUser }) => {
                                             </div>
                                             <div className="actions">
                                                 <span className={`badge bg-${app.status}`}>{app.status}</span>
-                                                {app.status === 'pending' || app.status === 'approved' ? (
+
+                                                {/* Patient Actions */}
+                                                {user.user.role === 'patient' && (app.status === 'pending' || app.status === 'approved') && (
                                                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                                                         <button className="btn btn-sm btn-outline" onClick={() => openReschedule(app)}>Reschedule</button>
                                                         <button className="btn btn-sm btn-danger" onClick={() => handleCancel(app._id)}>Cancel</button>
                                                     </div>
-                                                ) : null}
+                                                )}
+
+                                                {/* Doctor Actions */}
+                                                {user.user.role === 'doctor' && (
+                                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                                                        {app.status === 'pending' && (
+                                                            <>
+                                                                <button className="btn btn-sm btn-primary" style={{ background: 'var(--success)', color: 'white' }} onClick={() => handleStatusUpdate(app._id, 'approved')}>Approve</button>
+                                                                <button className="btn btn-sm btn-outline" onClick={() => handleStatusUpdate(app._id, 'rejected')}>Reject</button>
+                                                            </>
+                                                        )}
+                                                        {app.status === 'approved' && (
+                                                            <button className="btn btn-sm btn-primary" onClick={() => openTreatmentModal(app)}>Treat Patient</button>
+                                                        )}
+                                                        {(app.status === 'completed' || app.treatment) && (
+                                                            <button className="btn btn-sm btn-outline" onClick={() => openTreatmentModal(app)}>View Details</button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -163,6 +213,58 @@ const SchedulePage = ({ user, setUser }) => {
                                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Confirm Reschedule</button>
                                 <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowRescheduleModal(false)}>Cancel</button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Treatment Modal */}
+            {showTreatmentModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0 }}>Consultation Report</h3>
+                            <button onClick={() => setShowTreatmentModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                            Patient: <strong>{selectedApp.patientName}</strong> | Reason: {selectedApp.reason || 'Checkup'}
+                        </p>
+
+                        <form onSubmit={handleTreatmentSubmit}>
+                            <div className="form-group">
+                                <label>Treatment Given</label>
+                                <textarea
+                                    required
+                                    placeholder="Describe the treatment..."
+                                    value={treatmentData.treatment}
+                                    onChange={e => setTreatmentData({ ...treatmentData, treatment: e.target.value })}
+                                    disabled={selectedApp.status === 'completed'}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Prescription (Medicines)</label>
+                                <textarea
+                                    required
+                                    placeholder="List medicines here..."
+                                    value={treatmentData.prescription}
+                                    onChange={e => setTreatmentData({ ...treatmentData, prescription: e.target.value })}
+                                    disabled={selectedApp.status === 'completed'}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Additional Notes</label>
+                                <textarea
+                                    placeholder="Follow-up instructions etc."
+                                    value={treatmentData.notes}
+                                    onChange={e => setTreatmentData({ ...treatmentData, notes: e.target.value })}
+                                    disabled={selectedApp.status === 'completed'}
+                                />
+                            </div>
+                            {selectedApp.status !== 'completed' && (
+                                <button className="btn btn-primary" style={{ width: '100%', borderRadius: '50px', padding: '0.8rem', marginTop: '1rem' }}>
+                                    Save & Complete Consultation
+                                </button>
+                            )}
                         </form>
                     </div>
                 </div>

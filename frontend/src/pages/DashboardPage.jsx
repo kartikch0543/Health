@@ -51,8 +51,22 @@ const DashboardPage = ({ user, setUser }) => {
                     </div>
                 </div>
 
+                {user.user.role === 'doctor' && stats.upcoming > 0 && (
+                    <div className="card" style={{ marginBottom: '2.5rem', borderLeft: '5px solid var(--pending)', background: '#fffbeb' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                            <div>
+                                <h3 style={{ margin: 0, color: '#92400e' }}>Action Required</h3>
+                                <p style={{ margin: 0, color: '#b45309', fontSize: '0.9rem' }}>
+                                    You have <strong>{stats.upcoming}</strong> active appointments. Please visit <strong>My Schedule</strong> to approve pending requests or start consultations.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="dashboard-content-grid">
-                    <section className="quick-actions">
+                    <section className="quick-actions card">
                         <h2>Quick Actions</h2>
                         <div className="actions-list">
                             {user.user.role === 'patient' && (
