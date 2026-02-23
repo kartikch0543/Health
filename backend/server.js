@@ -6,44 +6,40 @@ require("dotenv").config();
 const authRoutes = require("./routes/authRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const userRoutes = require("./routes/userRoutes");
+const seedDoctors = require("./seed");
 
 const app = express();
 
-// ========================
-// MIDDLEWARE
-// ========================
+// ===== MIDDLEWARE =====
 app.use(express.json());
 
-// ========================
-// CORS CONFIG (FINAL FIX)
-// ========================
+// ===== CORS CONFIG =====
 app.use(
   cors({
-    origin: true, // allow all origins (fixes Vercel preview URL issue)
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   })
 );
 
-// ========================
-// ROUTES
-// ========================
+// ===== ROUTES =====
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/appointments", appointmentRoutes);
 
 app.get("/", (req, res) => {
-  res.status(200).send("MediTrack API is running 🚀");
+  res.status(200).send("MediCore API is running 🚀");
 });
 
-// ========================
-// DATABASE CONNECTION
-// ========================
+// ===== DATABASE CONNECTION =====
 const PORT = process.env.PORT || 5000;
 
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log("MongoDB Connected ✅");
+
+    // 🔥 AUTO SEED (only once)
+    await seedDoctors();
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
