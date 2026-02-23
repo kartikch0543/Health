@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+
 const authRoutes = require('./routes/authRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -10,27 +11,42 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
-const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
-app.use(cors({ origin: allowedOrigin, credentials: true }));
+// ✅ Simple CORS (safe for deployment testing)
+app.use(cors());
 app.use(express.json());
 
-// Routes
+// ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
 
+// ✅ Root route
 app.get('/', (req, res) => {
     res.send('MediTrack API is running...');
 });
 
-// Database Connection
+// ✅ Environment Variables
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/meditrack';
+const MONGO_URI = process.env.MONGO_URI;
 
+// ✅ MongoDB Connection
 mongoose.connect(MONGO_URI)
     .then(() => {
-        console.log('MongoDB Connected');
-        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+        console.log('✅ MongoDB Connected');
+        app.listen(PORT, () => {
+            console.log(`🚀 Server running on port ${PORT}`);
+        });
     })
-    .catch(err => console.log('Database Connection Error:', err));
+    .catch(err => {
+        console.error('❌ Database Connection Error:', err);
+        process.exit(1);
+    });
+
+// ✅ Prevent silent crashes
+process.on('unhandledRejection', (err) => {
+    console.error('Unhandled Rejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
