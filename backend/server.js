@@ -9,20 +9,24 @@ const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
-// ===== MIDDLEWARE =====
+// ========================
+// MIDDLEWARE
+// ========================
 app.use(express.json());
 
-// ===== CORS CONFIG =====
-const allowedOrigin = process.env.FRONTEND_URL;
-
+// ========================
+// CORS CONFIG (FINAL FIX)
+// ========================
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: true, // allow all origins (fixes Vercel preview URL issue)
     credentials: true,
   })
 );
 
-// ===== ROUTES =====
+// ========================
+// ROUTES
+// ========================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/appointments", appointmentRoutes);
@@ -31,14 +35,13 @@ app.get("/", (req, res) => {
   res.status(200).send("MediTrack API is running 🚀");
 });
 
-// ===== DATABASE CONNECTION =====
+// ========================
+// DATABASE CONNECTION
+// ========================
 const PORT = process.env.PORT || 5000;
 
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB Connected ✅");
 
