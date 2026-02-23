@@ -10,28 +10,44 @@ const seedDoctors = require("./seed");
 
 const app = express();
 
-// ===== MIDDLEWARE =====
+// =============================
+// MIDDLEWARE
+// =============================
 app.use(express.json());
+
+// =============================
+// CORS FIX (FINAL VERSION)
+// =============================
+const allowedOrigins = [
+  process.env.FRONTEND_URL, // your main Vercel URL
+  "http://localhost:5173",  // local dev
+];
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like Postman)
+      if (!origin) return callback(null, true);
+
+      // Allow main frontend URL
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow ALL Vercel preview deployments
+      if (origin.includes("vercel.app")) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS not allowed"));
+    },
     credentials: true,
   })
 );
 
-// ===== TEMP SEED ROUTE (REMOVE AFTER USE) =====
-app.get("/seed-production", async (req, res) => {
-  try {
-    await seedDoctors();
-    res.status(200).send("Doctors seeded successfully 🚀");
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Seeding failed ❌");
-  }
-});
-
-// ===== ROUTES =====
+// =============================
+// ROUTES
+// =============================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/appointments", appointmentRoutes);
@@ -40,13 +56,18 @@ app.get("/", (req, res) => {
   res.status(200).send("MediCore API is running 🚀");
 });
 
-// ===== DATABASE CONNECTION =====
+// =============================
+// DATABASE CONNECTION
+// =============================
 const PORT = process.env.PORT || 5000;
 
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log("MongoDB Connected ✅");
+
+    // Seed doctors if not already seeded
+    await seedDoctors();
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
